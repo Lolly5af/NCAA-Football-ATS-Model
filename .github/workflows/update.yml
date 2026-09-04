@@ -1,0 +1,32 @@
+name: CFB ATS model refresh
+
+on:
+  schedule:
+    - cron: "0 14 * * 2,4,6"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Refresh current season
+        run: python -m src.pipeline --current-season 2026
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+      - name: Generate weekly picks
+        run: python -m src.predict --season 2026 --week ${{ vars.CFB_WEEK || '1' }}
+      - name: Commit refreshed data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports data/processed
+          git diff --cached --quiet || git commit -m "Refresh 2026 CFB ATS predictions"
+          git push
